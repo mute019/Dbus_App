@@ -39,9 +39,9 @@ int main() {
         exit(1);
     }
 
-    const char *unique_name = dbus_bus_get_unique_name(conn);
+    // const char *unique_name = dbus_bus_get_unique_name(conn);
 
-    fprintf(stdout, "Unique Name: %s\n", unique_name);
+    // fprintf(stdout, "Unique Name: %s\n", unique_name);
 
     while(1) {}
     
