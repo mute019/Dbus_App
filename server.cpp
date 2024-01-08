@@ -49,11 +49,12 @@ int main() {
 
         if (!dbus_connection_get_is_connected(servr->conn)) {
             fprintf(stderr, "No connection. \n");
+            sleep(1);
         }
         
         if (!dbus_connection_read_write(servr->conn, 0)) {
             fprintf(stderr, "Waiting ..\n");
-            continue;
+            sleep(1);
         }
 
         pthread_mutex_init(&servr->lock, nullptr);
@@ -235,7 +236,7 @@ void message_handler(server_info *servr, DBusMessage* message) {
         close(servr->app_pipe[0]);
         // close(servr->app_pipe[1]);
 
-        dup2(servr->app_pipe[1], STDOUT_FILENO);
+        dup2(servr->app_pipe[1], STDOUT_FILENO); 
 
         int ret = execvp(args[0], args); //execvp("ls", NULL) 
 
@@ -265,17 +266,20 @@ void message_handler(server_info *servr, DBusMessage* message) {
         FILE* reply_fd = fdopen(servr->app_pipe[0], "r");
         
         while ((init_size = getline(&reply_str, &init_size, reply_fd)) != -1) {
-            prev = prev + reply_str;
+
+            prev = prev + reply_str;    
+        
         }
-
-        const char* str_buffer = prev.c_str();
-
-        std::cout << str_buffer;
 
         while (wpid = wait(nullptr) > 0) {}
 
+        const char *str_buffer = prev.c_str();
 
-        // // DBUS REPLY PART
+        fprintf(stdout, "%s", str_buffer);
+
+        
+
+        // DBUS REPLY PART
         DBusMessage *reply;
         if ((reply = dbus_message_new_method_return(servr->message)) == nullptr) {
             fprintf(stderr, "Error in dbus_message_new_method_return");
@@ -283,26 +287,52 @@ void message_handler(server_info *servr, DBusMessage* message) {
         }
 
         DBusMessageIter iter;
-      
+        DBusMessageIter sub_iter;
+
+        // dbus_message_iter_init(reply, &iter);
 
         dbus_message_iter_init_append(reply, &iter);
 
-
-        if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &reply_str)) {
-            fprintf(stderr, "error in dbus_message_iter_append_basic \n");
-            return;
+        if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_DICT_ENTRY, nullptr, &sub_iter)) {
+            fprintf(stderr, "Error: dbus_message_iter_open_container\n");
+            exit(1);
         }
 
-        if (!dbus_connection_send(servr->conn, reply, nullptr)) {
-            fprintf(stderr, "error in dbus_connection_send \n");
-            return;
-        }
+        const char* msg_key = "id";
 
+        
+
+        // if (!dbus_message_iter_append_basic(&sub_iter, DBUS_TYPE_STRING, &msg_key)) {
+        //     fprintf(stderr, "error in dbus_message_iter_append_basic \n");
+        //     exit(1);
+        // }
+
+        // fprintf(stdout, "%s \n",str_buffer);
+        // if (!dbus_message_iter_append_basic(&sub_iter, DBUS_TYPE_STRING, &str_buffer)) {
+        //     fprintf(stderr, "error in dbus_message_iter_append_basic \n");
+        //     exit(1);
+        // }
+
+        
+        // if (!dbus_message_iter_close_container(&iter, &sub_iter)) {
+
+        //     fprintf(stderr, "Error: dbus_message_iter_close_container\n");
+        //     exit(1);
+        // }
+
+        
+        // if (!dbus_connection_send(servr->conn, reply, nullptr)) {
+        //     fprintf(stderr, "error in dbus_connection_send \n");
+        //     exit(1);
+        // }
+
+        
         dbus_message_unref(reply);
+
+        dbus_connection_flush(servr->conn);
 
         servr->message = nullptr;
         servr->resolved = true;
-        dbus_connection_flush(servr->conn);
 
         pthread_mutex_unlock(&servr->lock);
 
